@@ -57,7 +57,7 @@ def user_locked(user):
         return None
     cur = get_db().cursor()
     cur.execute(
-        'SELECT COUNT(1) AS failures FROM login_log WHERE user_id = %s AND id > IFNULL((select id from login_log where user_id = %s AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0);',
+        'SELECT COUNT(1) AS failures FROM login_log WHERE user_id = %s AND id > IFNULL((select id from login_log where user_id = %s AND succeeded = 1), 0);',
         (user['id'], user['id'])
     )
     log = cur.fetchone()
@@ -68,7 +68,7 @@ def ip_banned():
     global config
     cur = get_db().cursor()
     cur.execute(
-        'SELECT COUNT(1) AS failures FROM login_log WHERE ip = %s AND id > IFNULL((select id from login_log where ip = %s AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0)',
+        'SELECT COUNT(1) AS failures FROM login_log WHERE ip = %s AND id > IFNULL((select id from login_log where ip = %s AND succeeded = 1), 0)',
         (request.remote_addr, request.remote_addr)
     )
     log = cur.fetchone()
