@@ -1,7 +1,11 @@
-.PHONY: main mysql nginx ctrl bench
+.PHONY: main sysctl mysql nginx ctrl bench
 
-main: mysql nginx bench
+main: sysctl mysql nginx bench
 	echo "OK"
+
+sysctl:
+	sudo ln -sf $(PWD)/sysctl.conf /etc/sysctl.conf
+	sudo sysctl -a
 
 mysql: 
 	sudo ln -sf $(PWD)/my.cnf /etc/my.cnf
@@ -20,5 +24,5 @@ ctrl:
 	sudo /etc/init.d/supervisord start
 
 bench:
-        sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
+	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
 	sudo su - isucon -c '/home/isucon/benchmarker bench --workload 4'
