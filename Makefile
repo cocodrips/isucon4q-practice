@@ -1,6 +1,6 @@
 .PHONY: main mysql nginx ctrl bench python
 
-main: mysql nginx bench
+main: mysql python ctrl nginx bench
 	echo "OK"
 
 mysql: 
