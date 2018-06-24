@@ -15,7 +15,8 @@ nginx:
 	sudo service nginx restart
 	
 python:
-	sudo su - isucon -c "pip install -r $(PWD)/python/requirements.txt"
+#	sudo su - isucon -c "pip install -r $(PWD)/python/requirements.txt"
+	echo "Pass python"
 	
 ctrl:
 	sudo /etc/init.d/supervisord stop
