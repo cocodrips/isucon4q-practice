@@ -53,10 +53,11 @@ def login_log(succeeded, login, user_id=None):
     print('login_log: ' + str(succeeded) + ', ' + login + ', ' + str(user_id) + ',' + request.remote_addr)
     db = get_db()
     cur = db.cursor()
-    cur.execute(
-        'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),%s,%s,%s,%s)',
-        (user_id, login, request.remote_addr, 1 if succeeded else 0)
-    )
+    if succeeded:
+        cur.execute(
+            'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),%s,%s,%s,%s)',
+            (user_id, login, request.remote_addr, 1 if succeeded else 0)
+        )
     if user_id:
         if succeeded:
             cur.execute(
@@ -66,9 +67,15 @@ def login_log(succeeded, login, user_id=None):
 
         else:
             cur.execute(
-                'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
-                (user_id,),
+                'SELECT fail FROM user_fail_count WHERE user_id=%s AND fail > %s ;',
+                (user_id, config['user_lock_threshold'])
             )
+            fcnt = cur.fetchone()
+            if fcnt is None:                 
+                cur.execute(
+                    'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
+                    (user_id,),
+                )
 
     # IP Check
     if succeeded:
@@ -79,9 +86,15 @@ def login_log(succeeded, login, user_id=None):
 
     else:
         cur.execute(
-            'INSERT INTO ip_fail_count (ip, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
-            (request.remote_addr,),
+            'SELECT fail FROM ip_fail_count WHERE ip=%s AND fail > %s ;',
+            (request.remote_addr, config['ip_ban_threshold'])
         )
+        fcnt = cur.fetchone()
+        if fcnt is None:
+            cur.execute(
+                'INSERT INTO ip_fail_count (ip, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
+                (request.remote_addr,),
+            )
 
     cur.close()
     db.commit()
