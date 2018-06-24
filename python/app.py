@@ -50,24 +50,37 @@ def calculate_password_hash(password, salt):
 
 
 def login_log(succeeded, login, user_id=None):
-    print('login_log: ' + str(succeeded) + ', ' + login + ', ' + str(user_id))
+    print('login_log: ' + str(succeeded) + ', ' + login + ', ' + str(user_id) + ',' + request.remote_addr)
     db = get_db()
     cur = db.cursor()
     cur.execute(
         'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),%s,%s,%s,%s)',
         (user_id, login, request.remote_addr, 1 if succeeded else 0)
     )
+    if user_id:
+        if succeeded:
+            cur.execute(
+                'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 0) ON DUPLICATE KEY UPDATE fail = 0;',
+                (user_id,),
+            )
 
+        else:
+            cur.execute(
+                'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
+                (user_id,),
+            )
+
+    # IP Check
     if succeeded:
         cur.execute(
-            'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 0) ON DUPLICATE KEY UPDATE fail = 0;',
-            (user_id,),
+            'INSERT INTO ip_fail_count (ip, fail) VALUES (%s, 0) ON DUPLICATE KEY UPDATE fail = 0;',
+            (request.remote_addr,),
         )
 
     else:
         cur.execute(
-            'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
-            (user_id,),
+            'INSERT INTO ip_fail_count (ip, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
+            (request.remote_addr,),
         )
 
     cur.close()
@@ -94,10 +107,12 @@ def ip_banned():
     global config
     cur = get_db().cursor()
     cur.execute(
-        'SELECT COUNT(1) AS failures FROM login_log WHERE ip = %s AND id > IFNULL((select id from login_log where ip = %s AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0)',
-        (request.remote_addr, request.remote_addr)
+        'SELECT fail AS failures FROM ip_fail_count where ip = %s',
+        (request.remote_addr,)
     )
     log = cur.fetchone()
+    if log is None:
+        return False
     cur.close()
 
     return config['ip_ban_threshold'] <= log['failures']
