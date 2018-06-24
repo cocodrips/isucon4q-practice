@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -x
 set -e
 cd $(dirname $0)
@@ -11,3 +11,8 @@ mysql -h ${myhost} -P ${myport} -u ${myuser} -e "DROP DATABASE IF EXISTS ${mydb}
 mysql -h ${myhost} -P ${myport} -u ${myuser} ${mydb} < sql/schema.sql
 mysql -h ${myhost} -P ${myport} -u ${myuser} ${mydb} < sql/dummy_users.sql
 mysql -h ${myhost} -P ${myport} -u ${myuser} ${mydb} < sql/dummy_log.sql
+
+mysql -h ${myhost} -P ${myport} -u ${myuser} ${mydb} << EOS
+ALTER TABLE login_log ADD INDEX ip(ip);
+ALTER TABLE login_log ADD INDEX user_id(user_id);
+EOS
