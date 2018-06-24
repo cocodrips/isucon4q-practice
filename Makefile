@@ -19,9 +19,10 @@ python:
 	echo "Pass python"
 	
 ctrl:
-	sudo /etc/init.d/supervisord stop
-	sudo ln -sf $(PWD)/supervisord.conf /etc/supervisord.conf	
-	sudo /etc/init.d/supervisord start
+	echo "Pass ctrl"
+#	sudo /etc/init.d/supervisord stop
+#	sudo ln -sf $(PWD)/supervisord.conf /etc/supervisord.conf	
+#	sudo /etc/init.d/supervisord start
 
 bench:
 	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
