@@ -2,7 +2,7 @@
 
 main: mysql nginx bench
 	echo "OK"
-	
+
 mysql: 
 	sudo ln -sf $(PWD)/my.cnf /etc/my.cnf
 	sudo rm -f /var/log/mysql/*
@@ -20,4 +20,5 @@ ctrl:
 	sudo /etc/init.d/supervisord start
 
 bench:
+        sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
 	sudo su - isucon -c '/home/isucon/benchmarker bench --workload 4'
