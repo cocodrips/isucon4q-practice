@@ -19,9 +19,8 @@ nginx:
 	sudo service nginx restart
 	
 ctrl:
-	sudo /etc/init.d/supervisord stop
 	sudo ln -sf $(PWD)/supervisord.conf /etc/supervisord.conf	
-	sudo /etc/init.d/supervisord start
+	sudo supervisorctl reload
 
 bench:
 	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
