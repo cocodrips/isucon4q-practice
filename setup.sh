@@ -6,7 +6,6 @@ sudo yum install -y dstat htop tcpdump wget curl emacs vim-enhanced iotop unzip
 # Install alp
 wget https://github.com/tkuchiki/alp/releases/download/v0.3.1/alp_linux_amd64.zip
 unzip alp_linux_amd64.zip
-cd alp_linux_amd64.zip
 sudo mv alp /user/local/bin/alp
 rm alp_linux_amd64.zip
 
