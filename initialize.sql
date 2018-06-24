@@ -1,3 +1,6 @@
+ALTER TABLE login_log ADD INDEX ip(ip);
+ALTER TABLE login_log ADD INDEX user_id(user_id);
+
 CREATE TABLE fail_count (
   `id`      INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT,
