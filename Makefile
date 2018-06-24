@@ -5,9 +5,9 @@ main: mysql nginx bench
 	
 mysql: 
 	sudo ln -sf $(PWD)/my.cnf /etc/my.cnf
-	sudo rm /var/log/mysql/*
+	sudo rm -f/var/log/mysql/*
 	sudo service mysqld restart
-
+	
 nginx: 
 	sudo ln -sf $(PWD)/nginx /etc/nginx
 	sudo rm -f /var/log/nginx/access.log /var/log/nginx/error.log
