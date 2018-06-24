@@ -58,28 +58,36 @@ def login_log(succeeded, login, user_id=None):
         (user_id, login, request.remote_addr, 1 if succeeded else 0)
     )
 
+    cur.execute(
+        'SELECT fail AS failures FROM user_fail_count where user_id = %s',
+        (user_id,)
+    )
+    c = cur.fetchone()
     if succeeded:
-        cur.execute(
-            'INSERT INTO user_fail_count(user_id, fail) VALUES (%s, 0)',
-            (user_id,)
-        )
-    else:
-        cur.execute(
-            'SELECT fail AS failures FROM user_fail_count where user_id = %s',
-            (user_id,)
-        )
-        c = cur.fetchone()
-        if c is not None:
-            count = c['fail']
+        if c is None:
+            cur.execute(
+                'INSERT INTO user_fail_count(user_id, fail) VALUES (%s, 0)',
+            )
+        else:
+            count = c['failures']
             cur.execute(
                 'UPDATE user_fail_count set fail=%s where user_id=%s;',
                 (count, user_id)
             )
-        else:
+    else:
+        if c is None:
             cur.execute(
                 'INSERT INTO user_fail_count(user_id, fail) VALUES (%s, 1)',
                 (user_id,)
             )
+        else:
+            count = c['failures']
+            cur.execute(
+                'UPDATE user_fail_count set fail=%s where user_id=%s;',
+                (count, user_id)
+            )
+
+            
     cur.close()
     db.commit()
 
@@ -96,7 +104,7 @@ def user_locked(user):
     log = cur.fetchone()
     cur.close()
     if log is None:
-        return True
+        return False
     return config['user_lock_threshold'] <= log['failures']
 
 
