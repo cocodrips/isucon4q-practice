@@ -3,7 +3,7 @@ ALTER TABLE login_log ADD INDEX user_id(user_id);
 
 CREATE TABLE IF NOT EXISTS `user_fail_count` (
   `id`      INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `user_id` INT,
+  `user_id` INT UNIQUE,
   `fail`    INT          DEFAULT 0
 );
 
