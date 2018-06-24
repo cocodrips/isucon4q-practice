@@ -57,7 +57,7 @@ def user_locked(user):
         return None
     cur = get_db().cursor()
     cur.execute(
-        'SELECT fail AS failures FROM fail_count where user_id = %s'
+        'SELECT fail AS failures FROM user_fail_count where user_id = %s'
     )
 
     log = cur.fetchone()

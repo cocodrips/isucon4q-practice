@@ -1,14 +1,14 @@
 ALTER TABLE login_log ADD INDEX ip(ip);
 ALTER TABLE login_log ADD INDEX user_id(user_id);
 
-CREATE TABLE fail_count (
+CREATE TABLE IF NOTE EXISTS `user_fail_count` (
   `id`      INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT,
   `fail`    INT          DEFAULT 0
 );
 
 
-INSERT INTO fail_count (user_id, fail)
+INSERT INTO `user_fail_count` (user_id, fail)
   SELECT
     DISTINCT
     ll.user_id as user_id,

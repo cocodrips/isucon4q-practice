@@ -1,6 +1,6 @@
 .PHONY: main sysctl mysql nginx ctrl bench
 
-main: sysctl mysql nginx ctrl bench
+main: sysctl mysql nginx ctrl link_init bench
 	echo "OK"
 
 sysctl:
@@ -23,7 +23,9 @@ python:
 
 ctrl:
 	sudo supervisorctl reload
+	
+link_init:
+	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
 
 bench:
-	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
 	sudo su - isucon -c '/home/isucon/benchmarker bench --workload 4'
