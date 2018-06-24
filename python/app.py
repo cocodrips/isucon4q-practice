@@ -58,36 +58,18 @@ def login_log(succeeded, login, user_id=None):
         (user_id, login, request.remote_addr, 1 if succeeded else 0)
     )
 
-    cur.execute(
-        'SELECT fail AS failures FROM user_fail_count where user_id = %s',
-        (user_id,)
-    )
-    c = cur.fetchone()
     if succeeded:
-        if c is None:
-            cur.execute(
-                'INSERT INTO user_fail_count(user_id, fail) VALUES (%s, 0)',
-            )
-        else:
-            count = c['failures']
-            cur.execute(
-                'UPDATE user_fail_count set fail=%s where user_id=%s;',
-                (count, user_id)
-            )
-    else:
-        if c is None:
-            cur.execute(
-                'INSERT INTO user_fail_count(user_id, fail) VALUES (%s, 1)',
-                (user_id,)
-            )
-        else:
-            count = c['failures']
-            cur.execute(
-                'UPDATE user_fail_count set fail=%s where user_id=%s;',
-                (count, user_id)
-            )
+        cur.execute(
+            'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 0) ON DUPLICATE KEY UPDATE fail = 0;',
+            (user_id,),
+        )
 
-            
+    else:
+        cur.execute(
+            'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
+            (user_id,),
+        )
+
     cur.close()
     db.commit()
 
