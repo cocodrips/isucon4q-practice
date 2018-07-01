@@ -20,7 +20,9 @@ dummy_logs.each do |l|
     redis.set(ip_fail_key, 0)
     redis.hmset("users_#{l[3]}", "last_login_at", l[1], "last_login_ip", l[4])
   else
-    redis.incr(user_fail_key)
-    redis.incr(ip_fail_key)
+    user_fail_count = redis.incr(user_fail_key)
+    redis.sadd "locked_users", l[3] if user_fail_count >= 3
+    ip_fail_count = redis.incr(ip_fail_key)
+    redis.sadd "banned_ips", l[4] if ip_fail_count >= 10
   end
 end
