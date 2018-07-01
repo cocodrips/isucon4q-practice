@@ -8,7 +8,7 @@ password_key = "password"
 last_login_at_key = "last_login_at"
 last_login_ip_key = "last_login_ip"
 locked_user_key = "locked_users"
-banned_ip_key = "bunned_ips"
+banned_ip_key = "banned_ips"
 
 config = {
     'user_lock_threshold': int(
