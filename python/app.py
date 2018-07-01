@@ -1,16 +1,15 @@
-import MySQLdb
+from logging import getLogger
 import db_accessor as db
-from MySQLdb.cursors import DictCursor
 from datetime import datetime
+
 
 from flask import (
     Flask, request, redirect, session, url_for, flash, jsonify,
-    render_template, _app_ctx_stack
+    render_template, _app_ctx_stack, logging
 )
 from werkzeug.contrib.fixers import ProxyFix
 
 import os, hashlib
-from datetime import date
 
 config = {}
 app = Flask(__name__, static_url_path='')
@@ -18,7 +17,6 @@ app.wsgi_app = ProxyFix(app.wsgi_app)
 app.secret_key = os.environ.get('ISU4_SESSION_SECRET', 'shirokane')
 
 time_format = "%Y-%m-%d %H:%M:%S"
-
 
 def load_config():
     global config
@@ -124,18 +122,23 @@ def locked_users():
 
 @app.route('/')
 def index():
+    app.logger.debug("/")
     return render_template('index.html')
 
 
 @app.route('/login', methods=['POST'])
 def login():
+    app.logger.debug("/login")
     login = request.form['login']
     password = request.form['password']
     user, err = attempt_login(login, password)
+    
     if user:
+        app.logger.debug("Login Successed({}).".format(user.user_id))
         session['user_id'] = login
         return redirect(url_for('mypage'))
     else:
+        app.logger.debug("Login failed.")
         print('err = ' + err)
         if err == 'locked':
             flash('This account is locked.')
@@ -164,10 +167,10 @@ def report():
     return response
 
 
-# @app.route('/reset')
-# def reset():
-#     db.reset()
-#     return "OK"
+@app.route('/reset')
+def reset():
+    db.reset()
+    return "OK"
 
 
 if __name__ == '__main__':
