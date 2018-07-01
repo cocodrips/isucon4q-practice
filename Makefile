@@ -28,4 +28,5 @@ link_init:
 	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
 
 bench:
-	sudo su - isucon -c '/home/isucon/benchmarker bench --workload 4'
+	sudo service redis restart
+	sudo su - isucon -c '/home/isucon/benchmarker bench --workload 1'
