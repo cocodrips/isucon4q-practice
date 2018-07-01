@@ -27,7 +27,7 @@ def set_banned_ip(ip):
 
 
 def is_banned_ip(ip):
-    print r.sismember(banned_ip_key, ip)
+    print "banned ip:", r.sismember(banned_ip_key, ip), "count: ", get_fail_ip(ip)
     return r.sismember(banned_ip_key, ip)
 
 
@@ -46,6 +46,7 @@ def get_locked_users():
 
 
 def is_locked_user(user_id):
+    print "locked user:", r.sismember(locked_user_key, user_id), "count: ", get_fail_user(user_id)
     return r.sismember(locked_user_key, user_id)
 
 
