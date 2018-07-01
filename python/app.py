@@ -162,7 +162,7 @@ def mypage():
 @app.route('/report')
 def report():
     response = jsonify(
-        {'banned_ips': banned_ips(), 'locked_users': locked_users()})
+        {'banned_ips': list(banned_ips()), 'locked_users': list(locked_users())})
     response.status_code = 200
     return response
 
