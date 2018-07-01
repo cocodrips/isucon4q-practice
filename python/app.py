@@ -1,5 +1,7 @@
 import MySQLdb
+import db_accessor as db
 from MySQLdb.cursors import DictCursor
+from datetime import datetime
 
 from flask import (
     Flask, request, redirect, session, url_for, flash, jsonify,
@@ -15,6 +17,8 @@ app = Flask(__name__, static_url_path='')
 app.wsgi_app = ProxyFix(app.wsgi_app)
 app.secret_key = os.environ.get('ISU4_SESSION_SECRET', 'shirokane')
 
+time_format = "%Y-%m-%d %H:%M:%S"
+
 
 def load_config():
     global config
@@ -26,23 +30,12 @@ def load_config():
     return config
 
 
-def connect_db():
-    host = os.environ.get('ISU4_DB_HOST', 'localhost')
-    port = int(os.environ.get('ISU4_DB_PORT', '3306'))
-    dbname = os.environ.get('ISU4_DB_NAME', 'isu4_qualifier')
-    username = os.environ.get('ISU4_DB_USER', 'root')
-    password = os.environ.get('ISU4_DB_PASSWORD', '')
-    db = MySQLdb.connect(host=host, port=port, db=dbname, user=username,
-                         passwd=password, cursorclass=DictCursor,
-                         charset='utf8')
-    return db
+def get_current_time():
+    return datetime.now().strftime(time_format)
 
 
-def get_db():
-    top = _app_ctx_stack.top
-    if not hasattr(top, 'database'):
-        top.database = connect_db()
-    return top.database
+def get_time(time_string):
+    return datetime.strptime(time_string, time_format)
 
 
 def calculate_password_hash(password, salt):
@@ -50,198 +43,83 @@ def calculate_password_hash(password, salt):
 
 
 def login_log(succeeded, login, user_id=None):
-    print('login_log: ' + str(succeeded) + ', ' + login + ', ' + str(user_id) + ',' + request.remote_addr)
-    db = get_db()
-    cur = db.cursor()
-    if succeeded:
-        cur.execute(
-            'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),%s,%s,%s,%s)',
-            (user_id, login, request.remote_addr, 1 if succeeded else 0)
-        )
-    if user_id:
-        if succeeded:
-            cur.execute(
-                'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 0) ON DUPLICATE KEY UPDATE fail = 0;',
-                (user_id,),
-            )
+    print('login_log: ' + str(succeeded) + ', ' + login + ', ' + str(
+        user_id) + ',' + request.remote_addr)
 
+    if succeeded:
+        if user_id:
+            db.set_last_login_time(user_id, get_current_time())
         else:
-            cur.execute(
-                'SELECT fail FROM user_fail_count WHERE user_id=%s AND fail > %s ;',
-                (user_id, config['user_lock_threshold'])
-            )
-            fcnt = cur.fetchone()
-            if fcnt is None:                 
-                cur.execute(
-                    'INSERT INTO user_fail_count (user_id, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
-                    (user_id,),
-                )
-
-    # IP Check
-    if succeeded:
-        cur.execute(
-            'INSERT INTO ip_fail_count (ip, fail) VALUES (%s, 0) ON DUPLICATE KEY UPDATE fail = 0;',
-            (request.remote_addr,),
-        )
-
+            db.set_last_ip(user_id, request.remote_addr)
     else:
-        cur.execute(
-            'SELECT fail FROM ip_fail_count WHERE ip=%s AND fail > %s ;',
-            (request.remote_addr, config['ip_ban_threshold'])
-        )
-        fcnt = cur.fetchone()
-        if fcnt is None:
-            cur.execute(
-                'INSERT INTO ip_fail_count (ip, fail) VALUES (%s, 1) ON DUPLICATE KEY UPDATE fail = fail+1;',
-                (request.remote_addr,),
-            )
-
-    cur.close()
-    db.commit()
+        if user_id:
+            db.reset_fail_user(user_id)
+        else:
+            db.reset_fail_ip(request.remote_addr)
 
 
 def user_locked(user):
     if not user:
         return None
-    cur = get_db().cursor()
-    cur.execute(
-        'SELECT fail AS failures FROM user_fail_count where user_id = %s',
-        (user['id'],)
-    )
-
-    log = cur.fetchone()
-    cur.close()
-    if log is None:
-        return False
-    return config['user_lock_threshold'] <= log['failures']
+    return db.is_locked_user(user)
 
 
 def ip_banned():
-    global config
-    cur = get_db().cursor()
-    cur.execute(
-        'SELECT fail AS failures FROM ip_fail_count where ip = %s',
-        (request.remote_addr,)
-    )
-    log = cur.fetchone()
-    if log is None:
-        return False
-    cur.close()
-
-    return config['ip_ban_threshold'] <= log['failures']
+    return db.is_banned_ip(request.remote_addr)
 
 
 def attempt_login(login, password):
-    cur = get_db().cursor()
-    cur.execute('SELECT * FROM users WHERE login=%s', (login,))
-    user = cur.fetchone()
-    cur.close()
+    print("attempt_login", login, password)
+    user = login
+    pw, last_login, last_ip = db.get_user(user)
 
     if ip_banned():
-        if user:
-            login_log(False, login, user['id'])
-        else:
-            login_log(False, login)
         return [None, 'banned']
 
     if user_locked(user):
-        login_log(False, login, user['id'])
         return [None, 'locked']
 
-    if user and calculate_password_hash(password, user['salt']) == user[
-        'password_hash']:
-        login_log(True, login, user['id'])
+    # Success
+    if pw == password:
+        db.set_last_login_time(user, get_current_time())
+        db.set_last_ip(user, request.remote_addr)
+        db.reset_fail_ip(request.remote_addr)
+        db.reset_fail_user(user)
         return [user, None]
     elif user:
-        login_log(False, login, user['id'])
+        db.inc_fail_user(user)
+        db.inc_fail_ip(request.remote_addr)
         return [None, 'wrong_password']
     else:
-        login_log(False, login)
+        db.inc_fail_ip(request.remote_addr)
         return [None, 'wrong_login']
+
+
+class User:
+    def __init__(self, user_id, last_login_at, last_login_ip):
+        self.user_id = user_id
+        self.last_login_at = last_login_at
+        self.last_login_ip = last_login_ip
 
 
 def current_user():
     if not session['user_id']:
         return None
-    cur = get_db().cursor()
-    cur.execute('SELECT * FROM users WHERE id=%s', (session['user_id'],))
-    user = cur.fetchone()
-    cur.close()
-    if user:
-        return user
-    else:
-        return None
 
-
-def last_login():
-    user = current_user()
-    if not user:
-        return None
-
-    cur = get_db().cursor()
-    cur.execute(
-        'SELECT * FROM login_log WHERE succeeded = 1 AND user_id = %s ORDER BY id DESC LIMIT 2',
-        (user['id'],)
-    )
-    rows = cur.fetchall()
-    cur.close()
-    return rows[-1]
+    user_id = session['user_id']
+    _, last_login, last_ip = db.get_user(user_id)
+    u = User(user_id, last_login, last_ip)
+    return u
 
 
 def banned_ips():
-    global config
-    threshold = config['ip_ban_threshold']
-
-    cur = get_db().cursor()
-    cur.execute(
-        'SELECT ip FROM (SELECT ip, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY ip) AS t0 WHERE t0.max_succeeded = 0 AND t0.cnt >= %s',
-        (threshold,)
-    )
-    not_succeeded = cur.fetchall()
-    ips = map(lambda x: x['ip'], not_succeeded)
-
-    cur.execute(
-        'SELECT ip, MAX(id) AS last_login_id FROM login_log WHERE succeeded = 1 GROUP by ip')
-    last_succeeds = cur.fetchall()
-
-    for row in last_succeeds:
-        cur.execute(
-            'SELECT COUNT(1) AS cnt FROM login_log WHERE ip = %s AND %s < id',
-            (row['ip'], row['last_login_id']))
-        count = cur.fetchone()['cnt']
-        if threshold <= count:
-            ips.append(row['ip'])
-
-    cur.close()
+    ips = db.get_banned_ips()
     return ips
 
 
 def locked_users():
-    global config
-    threshold = config['user_lock_threshold']
-
-    cur = get_db().cursor()
-    cur.execute(
-        'SELECT user_id, login FROM (SELECT user_id, login, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY user_id) AS t0 WHERE t0.user_id IS NOT NULL AND t0.max_succeeded = 0 AND t0.cnt >= %s',
-        (threshold,)
-    )
-    not_succeeded = cur.fetchall()
-    ips = map(lambda x: x['login'], not_succeeded)
-
-    cur.execute(
-        'SELECT user_id, login, MAX(id) AS last_login_id FROM login_log WHERE user_id IS NOT NULL AND succeeded = 1 GROUP BY user_id')
-    last_succeeds = cur.fetchall()
-
-    for row in last_succeeds:
-        cur.execute(
-            'SELECT COUNT(1) AS cnt FROM login_log WHERE user_id = %s AND %s < id',
-            (row['user_id'], row['last_login_id']))
-        count = cur.fetchone()['cnt']
-        if threshold <= count:
-            ips.append(row['login'])
-
-    cur.close()
-    return ips
+    users = db.get_locked_users()
+    return users
 
 
 @app.route('/')
@@ -255,7 +133,7 @@ def login():
     password = request.form['password']
     user, err = attempt_login(login, password)
     if user:
-        session['user_id'] = user['id']
+        session['user_id'] = login
         return redirect(url_for('mypage'))
     else:
         print('err = ' + err)
@@ -272,8 +150,7 @@ def login():
 def mypage():
     user = current_user()
     if user:
-        return render_template('mypage.html', user=user,
-                               last_login=last_login())
+        return render_template('mypage.html', user=user)
     else:
         flash('You must be logged in')
         return redirect(url_for('index'))
