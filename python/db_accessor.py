@@ -1,5 +1,6 @@
 import os
 import redis
+from flask import current_app
 
 pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
 r = redis.StrictRedis(connection_pool=pool)
@@ -22,13 +23,13 @@ ban
 
 
 def set_banned_ip(ip):
-    print "locked", ip
+    current_app.logger.info("{} is locked.".format(ip))
     r.sadd(banned_ip_key, ip)
 
 
 def is_banned_ip(ip):
-    print "banned ip:", r.sismember(banned_ip_key, ip), "count: ", get_fail_ip(
-        ip)
+    current_app.logger.info("ban check [{}] ban:{} count:{} ".format(
+        ip, r.sismember(banned_ip_key, ip), get_fail_ip(ip)))
     return r.sismember(banned_ip_key, ip)
 
 
