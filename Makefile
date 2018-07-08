@@ -1,7 +1,7 @@
 WORKLOAD = 1
 .PHONY: main sysctl db nginx ctrl bench
 
-main: sysctl mysql nginx ctrl link_init bench
+main: sysctl db nginx ctrl link_init bench
 	echo "OK"
 
 sysctl:
