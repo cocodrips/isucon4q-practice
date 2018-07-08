@@ -30,4 +30,5 @@ link_init:
 	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
 
 bench:
+	sleep 5
 	sudo su - isucon -c "/home/isucon/benchmarker bench --workload ${WORKLOAD}"
