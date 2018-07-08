@@ -1,4 +1,5 @@
-.PHONY: main sysctl mysql nginx ctrl bench
+WORKLOAD = 1
+.PHONY: main sysctl db nginx ctrl bench
 
 main: sysctl mysql nginx ctrl link_init bench
 	echo "OK"
@@ -7,7 +8,8 @@ sysctl:
 	sudo ln -sf $(PWD)/sysctl.conf /etc/sysctl.conf
 	sudo sysctl -a
 
-mysql: 
+db:
+	sudo service redis restart 
 	sudo ln -sf $(PWD)/my.cnf /etc/my.cnf
 	sudo rm -f /var/log/mysql/*
 	sudo service mysqld restart
@@ -28,5 +30,4 @@ link_init:
 	sudo su - isucon -c 'ln -sf $(PWD)/init.sh init.sh'
 
 bench:
-	sudo service redis restart
-	sudo su - isucon -c '/home/isucon/benchmarker bench --workload 1'
+	sudo su - isucon -c "/home/isucon/benchmarker bench --workload ${WORKLOAD}"
