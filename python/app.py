@@ -15,6 +15,7 @@ config = {}
 app = Flask(__name__, static_url_path='')
 app.wsgi_app = ProxyFix(app.wsgi_app)
 app.secret_key = os.environ.get('ISU4_SESSION_SECRET', 'shirokane')
+app.debug = 1
 
 time_format = "%Y-%m-%d %H:%M:%S"
 
@@ -134,7 +135,7 @@ def login():
     user, err = attempt_login(login, password)
     
     if user:
-        app.logger.debug("Login Successed({}).".format(user.user_id))
+        app.logger.debug("Login Successed({}).".format(user))
         session['user_id'] = login
         return redirect(url_for('mypage'))
     else:
