@@ -2,7 +2,6 @@ from logging import getLogger
 import db_accessor as db
 from datetime import datetime
 
-
 from flask import (
     Flask, request, redirect, session, url_for, flash, jsonify,
     render_template, _app_ctx_stack, logging
@@ -18,6 +17,7 @@ app.secret_key = os.environ.get('ISU4_SESSION_SECRET', 'shirokane')
 app.debug = 1
 
 time_format = "%Y-%m-%d %H:%M:%S"
+
 
 def load_config():
     global config
@@ -73,10 +73,10 @@ def attempt_login(login, password):
     pw, last_login, last_ip = db.get_user(user)
 
     if ip_banned():
-        return [None, 'banned']
+        return [None, 'banned', None, None]
 
     if user_locked(user):
-        return [None, 'locked']
+        return [None, 'locked', None, None]
 
     # Success
     if pw == password:
@@ -84,14 +84,14 @@ def attempt_login(login, password):
         db.set_last_ip(user, request.remote_addr)
         db.reset_fail_ip(request.remote_addr)
         db.reset_fail_user(user)
-        return [user, None]
+        return [user, None, last_login, last_ip]
     elif user:
         db.inc_fail_user(user)
         db.inc_fail_ip(request.remote_addr)
-        return [None, 'wrong_password']
+        return [None, 'wrong_password', None, None]
     else:
         db.inc_fail_ip(request.remote_addr)
-        return [None, 'wrong_login']
+        return [None, 'wrong_login', None, None]
 
 
 class User:
@@ -107,7 +107,10 @@ def current_user():
 
     user_id = session['user_id']
     _, last_login, last_ip = db.get_user(user_id)
-    u = User(user_id, last_login, last_ip)
+    u = User(user_id, session['last_login'], session['last_ip'])
+    if not u.last_login_at:
+        u.last_login_at = last_login
+        u.last_login_ip = last_ip
     return u
 
 
@@ -132,15 +135,17 @@ def login():
     app.logger.debug("/login")
     login = request.form['login']
     password = request.form['password']
-    user, err = attempt_login(login, password)
-    
+    user, err, last_login, last_ip = attempt_login(login, password)
+
     if user:
         app.logger.debug("Login Successed({}).".format(user))
         session['user_id'] = login
+        session['last_login'] = last_login
+        session['last_ip'] = last_ip
         return redirect(url_for('mypage'))
     else:
         app.logger.debug("Login failed.")
-        print('err = ' + err)
+        app.logger.error('err = ' + err)
         if err == 'locked':
             flash('This account is locked.')
         elif err == 'banned':
@@ -163,7 +168,8 @@ def mypage():
 @app.route('/report')
 def report():
     response = jsonify(
-        {'banned_ips': list(banned_ips()), 'locked_users': list(locked_users())})
+        {'banned_ips': list(banned_ips()),
+         'locked_users': list(locked_users())})
     response.status_code = 200
     return response
 
